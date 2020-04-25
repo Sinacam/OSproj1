@@ -1,0 +1,5 @@
+#!/bin/bash
+
+dmesg --clear
+./program < $1
+dmesg | grep "Project1"
