@@ -32,33 +32,6 @@ struct timespec now()
     return t;
 }
 
-struct timespec timeAdd(struct timespec tp, struct timespec dur)
-{
-    struct timespec ret = {tp.tv_sec + dur.tv_sec, tp.tv_nsec + dur.tv_nsec};
-    if(ret.tv_nsec > 1000000000)
-    {
-        ret.tv_sec++;
-        ret.tv_nsec -= 1000000000;
-    }
-    return ret;
-}
-
-// One unit of time in nanoseconds.
-struct timespec getUnitTime()
-{
-    struct timespec start = now();
-    doUnitTime();
-    struct timespec end = now();
-
-    struct timespec ret = {end.tv_sec - start.tv_sec, end.tv_nsec - start.tv_nsec};
-    if(ret.tv_nsec < 0)
-    {
-        ret.tv_sec--;
-        ret.tv_nsec += 1000000000;
-    }
-    return ret;
-}
-
 // Info for simulated process.
 typedef struct
 {
@@ -156,8 +129,9 @@ void procCreate(procinfo_t* procinfo)
     }
     else
     {
-        procinfo->pid = pid;
         assignCPU(pid, 1);
+        procinfo->pid = pid;
+        procPreempt(procinfo);
     }
 }
 
@@ -302,7 +276,7 @@ int main()
         // time loop, each iteration moves forward by one unit of time
         while(true)
         {
-            if(ran == processCount)
+            if(ran == processCount && runningproc == NULL)
                 break;
 
             while(procinfos[pushed].ready == time)
@@ -321,8 +295,8 @@ int main()
             if(runningproc)
             {
                 int status;
-                waitpid(runningproc->pid, &status,  WNOHANG);
-                if(WIFEXITED(status))
+                pid_t child = waitpid(runningproc->pid, &status,  WNOHANG);
+                if(child != 0 && WIFEXITED(status))
                     runningproc = NULL;
             }
 
@@ -335,14 +309,14 @@ int main()
         qsort(procinfos, processCount, sizeof(procinfo_t), readycmp);
         int pushed = 0;
 
-        queue_t queue = queueMake(processCount);
+        queue_t queue = queueMake(processCount + 1);
         procinfo_t* runningproc = NULL;
         int time = 0, slice = 0;
 
         // time loop, each iteration moves forward by one unit of time
         while(true)
         {
-            if(queueSize(&queue) == 0 && pushed == processCount)
+            if(pushed == processCount && queueSize(&queue) == 0 && runningproc == NULL)
                 break;
 
             while(procinfos[pushed].ready == time)
@@ -353,7 +327,7 @@ int main()
             }
 
             // time slice expired
-            if(slice == 0)
+            if(slice <= 0)
             {
                 if(runningproc)
                 {
@@ -373,9 +347,12 @@ int main()
             if(runningproc)
             {
                 int status;
-                waitpid(runningproc->pid, &status,  WNOHANG);
-                if(WIFEXITED(status))
+                pid_t child = waitpid(runningproc->pid, &status,  WNOHANG);
+                if(child != 0 && WIFEXITED(status))
+                {
                     runningproc = NULL;
+                    slice = 0;
+                }
             }
 
             time++;
@@ -396,7 +373,7 @@ int main()
 
         while(true)
         {
-            if(heap.sz == 0 && pushed == processCount)
+            if(pushed == processCount && heap.sz == 0 && runningproc == NULL)
                 break;
 
             while(procinfos[pushed].ready == time)
@@ -416,8 +393,8 @@ int main()
             if(runningproc)
             {
                 int status;
-                waitpid(runningproc->pid, &status,  WNOHANG);
-                if(WIFEXITED(status))
+                pid_t child = waitpid(runningproc->pid, &status,  WNOHANG);
+                if(child != 0 && WIFEXITED(status))
                     runningproc = NULL;
             }
 
@@ -438,7 +415,7 @@ int main()
 
         while(true)
         {
-            if(heap.sz == 0 && pushed == processCount)
+            if(pushed == processCount && heap.sz == 0 && runningproc == NULL)
                 break;
 
             while(procinfos[pushed].ready == time)
@@ -471,8 +448,8 @@ int main()
             if(runningproc)
             {
                 int status;
-                waitpid(runningproc->pid, &status,  WNOHANG);
-                if(WIFEXITED(status))
+                pid_t child = waitpid(runningproc->pid, &status,  WNOHANG);
+                if(child != 0 && WIFEXITED(status))
                     runningproc = NULL;
             }
 
@@ -486,6 +463,12 @@ int main()
     {
         printf("Invalid policy %s\n", policy);
         return 1;
+    }
+
+    pid_t child;
+    while((child = wait(NULL)) != -1)
+    {
+        printf("prematurely exited scheduling loop: %d\n", child);
     }
 
     free(procinfos);

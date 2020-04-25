@@ -1,4 +1,4 @@
-FLAGS = -O2 -Wall -Wextra -pedantic
+FLAGS = -Wall -Wextra -pedantic
 
 all:
 	g++ main.c $(FLAGS) -o program
