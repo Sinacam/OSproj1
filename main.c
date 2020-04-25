@@ -1,3 +1,7 @@
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+
 #include<unistd.h>
 #include<sched.h>
 #include<errno.h>
@@ -8,6 +12,11 @@
 #include<stdint.h>
 #include<time.h>
 #include<string.h>
+
+#ifndef __cplusplus
+#define true 1
+#define false 0
+#endif
 
 FILE* kmsg;
 
@@ -50,6 +59,7 @@ void assignCPU(pid_t pid, int core)
         perror("assignCPU");
         exit(1);
     }
+    return;
 }
 
 // Performs setup for scheduler to work properly.
@@ -72,6 +82,7 @@ void setup()
         perror("setup");
         return;
     }
+    return;
 }
 
 // "schedule" a process to be ran
@@ -85,6 +96,7 @@ void procSchedule(procinfo_t* procinfo)
         perror("procSchedule");
         exit(1);
     }
+    return;
 }
 
 // "preempt" a process
@@ -98,6 +110,7 @@ void procPreempt(procinfo_t* procinfo)
         perror("procPreempt");
         exit(1);
     }
+    return;
 }
 
 // Creates a process but doesn't start it.
@@ -133,6 +146,7 @@ void procCreate(procinfo_t* procinfo)
         procinfo->pid = pid;
         procPreempt(procinfo);
     }
+    return;
 }
 
 int readycmp(const void* x, const void* y)
@@ -149,10 +163,11 @@ typedef struct {
 
 queue_t queueMake(int cap)
 {
-    return queue_t{
+    queue_t ret = {
         (procinfo_t**)malloc(cap * sizeof(procinfo_t*)),
         0, 0, cap,
     };
+    return ret;
 }
 
 procinfo_t* queuePop(queue_t* queue)
@@ -180,10 +195,11 @@ typedef struct {
 
 heap_t heapMake(int cap)
 {
-    return heap_t{
+    heap_t ret = {
         (procinfo_t**)malloc(cap * sizeof(procinfo_t*)),
         0, cap,
     };
+    return ret;
 }
 
 void heapUp(heap_t* heap, int i)
@@ -200,6 +216,7 @@ void heapUp(heap_t* heap, int i)
         heap->data[parent] = tmp;
         i = parent;
     }
+    return;
 }
 
 void heapDown(heap_t* heap, int i)
@@ -220,21 +237,22 @@ void heapDown(heap_t* heap, int i)
         heap->data[min] = tmp;
         i = min;
     }
+    return;
 }
 
 procinfo_t* heapPop(heap_t* heap)
 {
     procinfo_t* ret = heap->data[0];
-    heap->data[0] = heap->data[heap->sz];
-    heap->sz--;
+    heap->data[0] = heap->data[--heap->sz];
     heapDown(heap, 0);
     return ret;
 }
 
 void heapPush(heap_t* heap, procinfo_t* procinfo)
 {
-    heap->data[heap->sz++] = procinfo;
-    heapUp(heap, heap->sz);
+    heap->data[heap->sz] = procinfo;
+    heapUp(heap, heap->sz++);
+    return;
 }
 
 int main()

@@ -1,7 +1,7 @@
 FLAGS = -Wall -Wextra -pedantic
 
 all:
-	g++ main.c $(FLAGS) -o program
+	gcc main.c $(FLAGS) -o program
 run:
 	./program
 
