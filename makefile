@@ -1,4 +1,4 @@
-FLAGS = -Wall -Wextra -pedantic
+FLAGS = -Wall -Wextra -pedantic -lrt
 
 all:
 	gcc main.c $(FLAGS) -o program
@@ -6,4 +6,4 @@ run:
 	./program
 
 clean:
-	rm -f program timing main.o
+	rm -f program main.o
