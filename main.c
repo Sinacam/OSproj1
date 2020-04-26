@@ -6,9 +6,6 @@
 #include<sched.h>
 #include<errno.h>
 #include<sys/wait.h>
-#include<sys/mman.h>
-#include<sys/stat.h>
-#include<fcntl.h>
 
 #include<stdlib.h>
 #include<stdio.h>
@@ -48,8 +45,7 @@ struct timespec now()
 typedef struct
 {
     char name[32];      // lol "less than 32"
-    int ready;
-    volatile int* shmexec;
+    int ready, exec;
     pid_t pid;
 } procinfo_t;
 
@@ -71,7 +67,7 @@ void setup()
 {
     pid_t pid = getpid();
     struct sched_param params;
-    params.sched_priority = 0;
+    params.sched_priority = 0;     // realtime
     int policy = sched_setscheduler(pid, SCHED_OTHER | SCHED_RESET_ON_FORK, &params);
     if(policy < 0)
     {
@@ -133,10 +129,10 @@ void procCreate(procinfo_t* procinfo)
 
         pid_t child = getpid();
         printf("%s %d\n", procinfo->name, child);
-        while(*procinfo->shmexec > 0)
+        while(procinfo->exec > 0)
         {
             doUnitTime();
-            (*procinfo->shmexec)--;
+            procinfo->exec--;
         }
 
         struct timespec end = now();
@@ -146,9 +142,9 @@ void procCreate(procinfo_t* procinfo)
     }
     else
     {
+        assignCPU(pid, 1);
         procinfo->pid = pid;
         procPreempt(procinfo);
-        assignCPU(pid, 1);
     }
     return;
 }
@@ -212,7 +208,7 @@ void heapUp(heap_t* heap, int i)
     while(true)
     {
         int parent = (i - 1) >> 1;
-        if(i == 0 || *heap->data[i]->shmexec >= *heap->data[parent]->shmexec)
+        if(i == 0 || heap->data[i]->exec >= heap->data[parent]->exec)
             break;
 
         procinfo_t* tmp = heap->data[i];
@@ -229,10 +225,9 @@ void heapDown(heap_t* heap, int i)
     {
         int lchild = i * 2 + 1, rchild = i * 2 + 2;
         int min = i;
-        int self = *heap->data[min]->shmexec;
-        if(lchild < heap->sz && self > *heap->data[lchild]->shmexec)
+        if(lchild < heap->sz && heap->data[min]->exec > heap->data[lchild]->exec)
             min = lchild;
-        if(rchild < heap->sz && self > *heap->data[rchild]->shmexec)
+        if(rchild < heap->sz && heap->data[min]->exec > heap->data[rchild]->exec)
             min = rchild;
         if(min == i)
             break;
@@ -273,31 +268,10 @@ int main()
     }
 
     procinfo_t* procinfos = (procinfo_t*)malloc((processCount + 1) * sizeof(procinfo_t));
-
-    int shmfd = shm_open("osproj1", O_CREAT | O_RDWR, 0x777);
-    if(shmfd == -1)
-    {
-        perror("shm_open");
-        return 1;
-    }
-    if(ftruncate(shmfd, processCount * sizeof(int)) == -1)
-    {
-        perror("ftruncate");
-        return 1;
-    }
-    volatile int* shmp = (volatile int*)mmap(NULL, processCount * sizeof(int),
-                                             PROT_READ | PROT_WRITE, MAP_SHARED, shmfd, 0);
-    if(shmp == MAP_FAILED)
-    {
-        perror("mmap");
-        exit(1);
-    }
-
     for(int i = 0; i < processCount; i++)
     {
-        procinfos[i].shmexec = shmp + i;
         if(scanf("%32s %d %d", procinfos[i].name, &procinfos[i].ready,
-                 procinfos[i].shmexec) != 3)
+                 &procinfos[i].exec) != 3)
          {
              printf("invalid input format\n");
              return 1;
@@ -478,7 +452,7 @@ int main()
                     procSchedule(runningproc);
                 }
                 // TODO: check data race
-                else if(*heap.data[0]->shmexec < *runningproc->shmexec)
+                else if(heap.data[0]->exec < runningproc->exec)
                 {
                     heapPush(&heap, runningproc);
                     procPreempt(runningproc);
@@ -512,12 +486,9 @@ int main()
     pid_t child;
     while((child = wait(NULL)) != -1)
     {
-#ifndef NDEBUG
         printf("prematurely exited scheduling loop: %d\n", child);
-#endif
     }
 
-    shm_unlink("osproj1");
     free(procinfos);
     fclose(kmsg);
     return 0;
