@@ -137,6 +137,11 @@ void procCreate(procinfo_t* procinfo)
         struct timespec end = now();
         fprintf(kmsg, "[Project1] %d %lld.%ld %lld.%ld\n",
                 child, (long long)start.tv_sec, start.tv_nsec, (long long)end.tv_sec, end.tv_nsec);
+
+#ifndef NDEBUG
+        fprintf(stderr, "%s\n", procinfo->name);
+#endif
+
         exit(0);
     }
     else
@@ -345,7 +350,7 @@ int main()
                 pushed++;
             }
 
-            // time slice expired
+            // time  expired
             if(slice <= 0)
             {
                 if(runningproc)
@@ -490,11 +495,13 @@ int main()
         return 1;
     }
 
+#ifndef NDEBUG
     pid_t child;
     while((child = wait(NULL)) != -1)
     {
-        printf("prematurely exited scheduling loop: %d\n", child);
+        fprintf(stderr, "prematurely exited scheduling loop: %d\n", child);
     }
+#endif
 
     free(procinfos);
     fclose(kmsg);

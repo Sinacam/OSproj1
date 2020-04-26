@@ -1,4 +1,4 @@
-FLAGS = -Wall -Wextra -pedantic
+FLAGS = -Wall -Wextra -pedantic -DNDEBUG
 
 all:
 	gcc main.c $(FLAGS) -o program

@@ -1,0 +1,10 @@
+#!/bin/bash
+
+for f in test/*.txt; do
+    bname=$(basename $f .txt)
+    dmesg --clear
+    echo "$bname"
+    command time -f %E sh -c "./program < test/\"$bname\".txt > output/\"$bname\"_output.txt"
+    dmesg | grep "Project1" > output/"$bname"_dmesg.txt
+    sleep 2s
+done
