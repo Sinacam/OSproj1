@@ -67,7 +67,7 @@ void setup()
 {
     pid_t pid = getpid();
     struct sched_param params;
-    params.sched_priority = 0;     // realtime
+    params.sched_priority = 0;
     int policy = sched_setscheduler(pid, SCHED_OTHER | SCHED_RESET_ON_FORK, &params);
     if(policy < 0)
     {
@@ -129,10 +129,9 @@ void procCreate(procinfo_t* procinfo)
 
         pid_t child = getpid();
         printf("%s %d\n", procinfo->name, child);
-        while(procinfo->exec > 0)
+        for(int i = 0; i < procinfo->exec; i++)
         {
             doUnitTime();
-            procinfo->exec--;
         }
 
         struct timespec end = now();
@@ -318,6 +317,8 @@ int main()
                     runningproc = NULL;
             }
 
+            if(runningproc)
+                runningproc->exec--;
             time++;
             doUnitTime();
         }
@@ -373,6 +374,8 @@ int main()
                 }
             }
 
+            if(runningproc)
+                runningproc->exec--;
             time++;
             slice--;
             doUnitTime();
@@ -416,6 +419,8 @@ int main()
                     runningproc = NULL;
             }
 
+            if(runningproc)
+                runningproc->exec--;
             time++;
             doUnitTime();
         }
@@ -471,6 +476,8 @@ int main()
                     runningproc = NULL;
             }
 
+            if(runningproc)
+                runningproc->exec--;
             time++;
             doUnitTime();
         }
